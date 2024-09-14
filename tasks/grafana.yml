@@ -1,0 +1,63 @@
+---
+- name: Grafana Create config dirs
+  ansible.builtin.file:
+    path: "{{ grafana_dir }}"
+    state: directory
+    mode: '0755'
+  loop:
+  - "{{ grafana_config_dir }}"
+  - "{{ grafana_config_dir }}/provisioning/datasources"
+  loop_control:
+    loop_var: grafana_dir
+  tags:
+  - configs
+
+- name: Grafana Create a volume
+  community.docker.docker_volume:
+    name: "{{ grafana_data_volume }}"
+
+- name: Grafana Prepare config file
+  ansible.builtin.template:
+    src: grafana/grafana.ini.j2
+    dest: "{{ grafana_config_dir }}/grafana.ini"
+    force: true
+    owner: '472'
+    group: '472'
+    mode: '0640'
+  tags:
+  - configs
+
+- name: Grafana Prepare datasource config
+  ansible.builtin.template:
+    src: grafana/provisioning/datasources/prometheus.yaml.j2
+    dest: "{{ grafana_config_dir }}/provisioning/datasources/prometheus.yaml"
+    force: true
+    owner: '472'
+    group: '472'
+    mode: '0640'
+  tags:
+  - configs
+
+- name: Grafana Run Grafana container
+  community.docker.docker_container:
+    name: "{{ grafana_container_name }}"
+    hostname: "{{ grafana_container_name }}"
+    image: "{{ grafana_image }}:{{ grafana_version }}"
+    container_default_behavior: compatibility
+    command_handling: correct
+    state: started
+    networks:
+    - name: "{{ docker_network_name }}"
+    ports:
+    - "3000:3000"
+    restart: "{{ grafana_container_restart }}"
+    recreate: "{{ grafana_container_recreate }}"
+    restart_policy: unless-stopped
+    log_driver: journald
+    log_options:
+      tag: "{{ '{{' }}.Name{{ '}}' }}"
+    volumes:
+    - "{{ grafana_config_dir }}:/etc/grafana:ro"
+    - "{{ grafana_data_volume }}:/var/lib/grafana:rw"
+  # this is because grafana_container_restart is true by default
+  changed_when: False

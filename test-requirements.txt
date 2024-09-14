@@ -1,0 +1,6 @@
+ansible-core~=2.11.5
+ansible-lint~=5.1.3
+python-vagrant~=0.5.15
+molecule[lint]~=3.4.0
+# Custom version of the molecule-vagrant to include this https://github.com/ansible-community/molecule-vagrant/pull/105
+git+https://github.com/ansible-community/molecule-vagrant@0a1b20e#egg=molecule-vagrant

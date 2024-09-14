@@ -1,0 +1,172 @@
+---
+packages:
+- python3
+- python3-pip
+- python3-docker
+
+# Docker network name. This network will be used for all the containers except those with host network mode
+docker_network_name: monitoring
+# Docker network IPAM config: subnet in CIDR format that represents a network segment
+docker_network_subnet: 172.18.0.1/16
+# Docker network IPAM config: IPv4 or IPv6 gateway for the master subnet
+docker_network_gateway: 172.18.0.1
+# Docker network IPAM config: range of IPs from which to allocate container IPs
+docker_network_iprange: 172.18.0.1/16
+
+#####################
+##  node_exporter  ##
+#####################
+node_exporter_enabled: true
+# Image name to create container from
+node_exporter_image: quay.io/prometheus/node-exporter
+# Docker image tag, typically corresponds to the application version or 'latest'
+node_exporter_version: v1.5.0
+# Name for the container
+node_exporter_container_name: node-exporter
+# Use with started state to force a matching container to be stopped and restarted
+node_exporter_container_restart: no
+# Use with present and started states to force the re-creation of an existing container
+node_exporter_container_recreate: no
+# Listen port
+node_exporter_port: 9100
+# Allow node exporter port on the firewall
+node_exporter_configure_firewalld: yes
+
+##################
+##  Prometheus  ##
+##################
+# Image name to create container from
+prometheus_image: quay.io/prometheus/prometheus
+# Docker image tag, typically corresponds to the application version or 'latest'
+prometheus_version: v2.41.0
+# Name for the container
+prometheus_container_name: prometheus
+# Use with started state to force a matching container to be stopped and restarted
+prometheus_container_restart: no
+# Use with present and started states to force the re-creation of an existing container
+prometheus_container_recreate: no
+# Path to the Prometheus data (TSDB) on the host. Must be writable for the user: uid=65534(nobody) gid=65534(nobody)
+prometheus_data_dir: /var/lib/prometheus
+# Whether to create prometheus_data_dir automatically. Set to false if data dir is created and managed outside of this role
+prometheus_create_data_dir: true
+# Prometheus TSDB retention time
+prometheus_retention_time: 60d
+# Path to the Prometheus configs on the host. Must be readable for the user: uid=65534(nobody) gid=65534(nobody)
+prometheus_config_dir: /etc/prometheus
+# Path to the Prometheus configs inside the container
+prometheus_container_config_dir: "{{ prometheus_config_dir | default('/etc/prometheus') }}"
+# Container env vars dictionary
+prometheus_env: {}
+# Global configuration options
+prometheus_global_config:
+  # How frequently to scrape targets by default
+  scrape_interval: 30s
+  # How long until a scrape request times out
+  scrape_timeout: 5s
+  # How frequently to evaluate rules
+  evaluation_interval: 15s
+
+# Alertmanager instances config
+# Check here for the details: https://prometheus.io/docs/prometheus/latest/configuration/configuration/#alertmanager_config
+prometheus_alertmanager_config:
+- static_configs:
+  - targets:
+    - "{{ alertmanager_container_name }}:9093"
+
+# Alert relabeling is applied to alerts before they are sent to the Alertmanager
+# Check here for the details: https://prometheus.io/docs/prometheus/latest/configuration/configuration/#alert_relabel_configs
+prometheus_alert_relabel_configs: []
+# - action: labeldrop
+#   regex: replica
+
+# Default scrape configs section. It specifies a set of targets and parameters describing how to scrape them
+# Check here for the details: https://prometheus.io/docs/prometheus/latest/configuration/configuration/#scrape_config
+# NOTE: Normally you would want to set your custom scrape configs via extra_scrape_configs variable
+prometheus_scrape_configs:
+- job_name: "prometheus"
+  static_configs:
+  - targets:
+    - "{{ ansible_host }}:9090"
+- job_name: "prometheus-node-exporter"
+  static_configs:
+  - targets:
+    - "{{ ansible_host }}:9100"
+# File-based target discovery for custom targets.
+# Check here for the details: https://prometheus.io/docs/prometheus/latest/configuration/configuration/#file_sd_config
+# NOTE: Config files specified in the list below are not managed by the role
+- job_name: "filesd-custom"
+  file_sd_configs:
+  - files:
+    - "{{ prometheus_container_config_dir }}/filesd/*_filesd.yml"
+    - "{{ prometheus_container_config_dir }}/filesd/*_filesd.yaml"
+    - "{{ prometheus_container_config_dir }}/filesd/*_filesd.json"
+
+# Additional scrape configs. Same format as for the scrape_configs variable
+prometheus_extra_scrape_configs: []
+# - job_name: "my-host-node-exporter"
+#   static_configs:
+#     - targets:
+#         - 'my-host:9100'
+
+####################
+##  Alertmanager  ##
+####################
+# Image name to create container from
+alertmanager_image: quay.io/prometheus/alertmanager
+# Docker image tag, typically corresponds to the application version or 'latest'
+alertmanager_version: v0.25.0
+# Name for the container
+alertmanager_container_name: alertmanager
+# Use with started state to force a matching container to be stopped and restarted
+alertmanager_container_restart: no
+# Use with present and started states to force the re-creation of an existing container
+alertmanager_container_recreate: no
+# Docker volume for Alertmanager data. Must be writable for the user: uid=65534(nobody) gid=65534(nobody)
+alertmanager_data_volume: alertmanager_data
+# Data retention time
+alertmanager_data_retention: 168h
+# Path to the Alertmanager configs on the host. Must be readable for the user: uid=65534(nobody) gid=65534(nobody)
+alertmanager_config_dir: /etc/alertmanager
+# Path to the Alertmanager configs inside the container
+alertmanager_container_config_dir: "{{ alertmanager_config_dir | default('/etc/alertmanager') }}"
+# Container env vars dictionary
+alertmanager_env: {}
+# A list of notification receivers.
+# See https://prometheus.io/docs/alerting/latest/configuration/#receiver for the syntax
+# NOTICE: Default here is just an example!
+alertmanager_receivers:
+- name: telegram
+  telegram_configs:
+  - api_url: "https://api.telegram.org"
+    parse_mode: HTML
+    bot_token: "{{ alertmanager_telegram_bot_token }}"
+    # Alertmanager will send alerts to this Telegram chat. Use @username_to_id_bot to get chat ID
+    chat_id: null
+    # Message template
+    message: !unsafe '{{ template "telegram.default.message" .}}'
+# Notification reciever for the top-level route
+alertmanager_default_receiver: telegram
+alertmanager_telegram_bot_token: null
+
+###############
+##  Grafana  ##
+###############
+# Image name to create container from
+grafana_image: grafana/grafana
+# Docker image tag, typically corresponds to the application version or 'latest'
+grafana_version: '8.5.1'
+# Name for the container
+grafana_container_name: grafana
+# Use with started state to force a matching container to be stopped and restarted.
+# Currently the simplest way to force Grafana to reload its configuration
+grafana_container_restart: yes
+# Use with present and started states to force the re-creation of an existing container
+grafana_container_recreate: no
+# Docker volume for the Grafana data. Must be writable for the user: uid=472(grafana) gid=472(grafana)
+grafana_data_volume: grafana_data
+# Path to the Grafana configs on the host. Must be readable for the user: uid=472(grafana) gid=472(grafana)
+grafana_config_dir: /etc/grafana
+# default admin user, created on startup
+grafana_admin_user: admin
+# default admin password, can be changed before first start of grafana, or in profile settings
+grafana_admin_password: admin

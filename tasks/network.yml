@@ -1,0 +1,7 @@
+- name: Create a network
+  community.docker.docker_network:
+    name: "{{ docker_network_name }}"
+    ipam_config:
+    - subnet: "{{ docker_network_subnet }}"
+      gateway: "{{ docker_network_gateway }}"
+      iprange: "{{ docker_network_iprange }}"

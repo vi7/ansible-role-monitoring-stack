@@ -1,0 +1,46 @@
+---
+- name: Install packages
+  become: true
+  ansible.builtin.package:
+    name: "{{ packages }}"
+    state: present
+  tags:
+  - common
+  - packages
+
+- import_tasks: network.yml
+  become: true
+  vars:
+    ansible_python_interpreter: /usr/bin/python3
+  tags:
+  - common
+  - network
+
+- import_tasks: node_exporter.yml
+  become: true
+  vars:
+    ansible_python_interpreter: /usr/bin/python3
+  when: node_exporter_enabled
+  tags:
+  - node_exporter
+
+- import_tasks: prometheus.yml
+  become: true
+  vars:
+    ansible_python_interpreter: /usr/bin/python3
+  tags:
+  - prometheus
+
+- import_tasks: alertmanager.yml
+  become: true
+  vars:
+    ansible_python_interpreter: /usr/bin/python3
+  tags:
+  - alertmanager
+
+- import_tasks: grafana.yml
+  become: true
+  vars:
+    ansible_python_interpreter: /usr/bin/python3
+  tags:
+  - grafana

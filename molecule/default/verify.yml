@@ -1,0 +1,18 @@
+---
+# Ansible playbook with tests
+- name: Verify
+  hosts: all
+  gather_facts: false
+  tasks:
+  - name: Test Prometheus availability
+    ansible.builtin.command: curl --fail -I -XGET http://localhost:9090/api/v1/targets
+    changed_when: False
+  - name: Test Alertmanager availability
+    ansible.builtin.command: curl --fail -I -XGET http://localhost:9093/-/ready
+    changed_when: False
+  - name: Test Node Exporter availability
+    ansible.builtin.command: curl --fail -I -XGET http://localhost:9100/metrics
+    changed_when: False
+  - name: Test Grafana availability
+    ansible.builtin.command: curl --fail -I http://admin:molecule@localhost:3000/api/login/ping
+    changed_when: False

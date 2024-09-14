@@ -1,0 +1,52 @@
+#jinja2: lstrip_blocks: True
+{{ ansible_managed | comment }}
+
+#################################### Paths ####################################
+[paths]
+
+# Default paths:
+
+# The following settings are hard-coded when launching the Grafana Docker container and can only be overridden using environment variables, not in conf/grafana.ini.
+
+# GF_PATHS_CONFIG	/etc/grafana/grafana.ini
+# GF_PATHS_DATA	/var/lib/grafana
+# GF_PATHS_HOME	/usr/share/grafana
+# GF_PATHS_LOGS	/var/log/grafana
+# GF_PATHS_PLUGINS	/var/lib/grafana/plugins
+# GF_PATHS_PROVISIONING	/etc/grafana/provisioning
+
+#################################### Security ############################
+[security]
+# disable creation of admin user on first start of grafana
+disable_initial_admin_creation = false
+# default admin user, created on startup
+admin_user = {{ grafana_admin_user }}
+# default admin password, can be changed before first start of grafana, or in profile settings
+admin_password = {{ grafana_admin_password }}
+
+#################################### SMTP / Emailing ##########################
+[smtp]
+;enabled = false
+;host = localhost:25
+;user =
+# If the password contains # or ; you have to wrap it with triple quotes. Ex """#password;"""
+;password =
+;cert_file =
+;key_file =
+;skip_verify = false
+;from_address = admin@grafana.localhost
+;from_name = Grafana
+# EHLO identity in SMTP dialog (defaults to instance_name)
+;ehlo_identity = dashboard.example.com
+# SMTP startTLS policy (defaults to 'OpportunisticStartTLS')
+;startTLS_policy = NoStartTLS
+
+[emails]
+;welcome_email_on_sign_up = false
+;templates_pattern = emails/*.html
+
+#################################### Logging ##########################
+[log]
+
+# Either "debug", "info", "warn", "error", "critical", default is "info"
+;level = info

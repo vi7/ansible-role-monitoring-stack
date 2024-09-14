@@ -1,0 +1,6 @@
+---
+- name: Prometheus config reload  # noqa no-changed-when
+  ansible.builtin.command: 'curl -sI -XPOST http://127.0.0.1:9090/-/reload'
+
+- name: Alertmanager config reload  # noqa no-changed-when
+  ansible.builtin.command: 'curl -sI -XPOST http://127.0.0.1:9093/-/reload'

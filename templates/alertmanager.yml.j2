@@ -1,0 +1,17 @@
+#jinja2: lstrip_blocks: True
+{{ ansible_managed | comment }}
+
+global:
+  resolve_timeout: 5m
+
+route:
+  receiver: {{ alertmanager_default_receiver }}
+  group_wait: 30s
+  group_interval: 10m
+  repeat_interval: 12h
+  group_by: [alertname, instance]
+
+{% if alertmanager_receivers | length > 0 %}
+receivers:
+{{ alertmanager_receivers | to_nice_yaml }}
+{% endif %}

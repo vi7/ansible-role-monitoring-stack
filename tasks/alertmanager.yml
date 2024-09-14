@@ -1,0 +1,55 @@
+---
+- name: Alertmanager Create config dir
+  ansible.builtin.file:
+    path: "{{ alertmanager_config_dir }}"
+    state: directory
+    mode: '0755'
+  tags:
+  - configs
+
+- name: Alertmanager Prepare config file
+  ansible.builtin.template:
+    src: alertmanager.yml.j2
+    dest: "{{ alertmanager_config_dir }}/alertmanager.yml"
+    force: true
+    # Alertmanager in the container runs as a user 'nobody' (uid=65534 gid=65534) in the container
+    owner: '65534'
+    group: '65534'
+    mode: '0640'
+    validate: "/usr/bin/docker run --rm --entrypoint amtool -v %s:/tmp/alertmanager.yml {{ alertmanager_image }}:{{ alertmanager_version }} check-config /tmp/alertmanager.yml"
+  notify:
+  - Alertmanager config reload
+  tags:
+  - configs
+
+- name: Alertmanager Create a volume
+  community.docker.docker_volume:
+    name: "{{ alertmanager_data_volume }}"
+
+- name: Alertmanager Run container
+# include collection into the module name
+  community.docker.docker_container:
+    name: "{{ alertmanager_container_name }}"
+    hostname: "{{ alertmanager_container_name }}"
+    image: "{{ alertmanager_image }}:{{ alertmanager_version }}"
+    container_default_behavior: compatibility
+    command:
+    - "--config.file={{ alertmanager_container_config_dir }}/alertmanager.yml"
+    - --storage.path=/alertmanager/data
+    - "--data.retention={{ alertmanager_data_retention }}"
+    command_handling: correct
+    env: "{{ alertmanager_env }}"
+    state: started
+    networks:
+    - name: "{{ docker_network_name }}"
+    ports:
+    - "9093:9093"
+    restart: "{{ alertmanager_container_restart }}"
+    recreate: "{{ alertmanager_container_recreate }}"
+    restart_policy: unless-stopped
+    log_driver: journald
+    log_options:
+      tag: "{{ '{{' }}.Name{{ '}}' }}"
+    volumes:
+    - "{{ alertmanager_config_dir }}:{{ alertmanager_container_config_dir }}:ro"
+    - "{{ alertmanager_data_volume }}:/alertmanager:rw"

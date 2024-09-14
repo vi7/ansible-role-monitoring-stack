@@ -1,0 +1,90 @@
+---
+- name: Prometheus Create config dirs
+  ansible.builtin.file:
+    path: '{{ prometheus_dir }}'
+    state: directory
+    mode: '0755'
+  loop:
+  - "{{ prometheus_config_dir }}"
+  - "{{ prometheus_config_dir }}/filesd"
+  - "{{ prometheus_config_dir }}/rules"
+  loop_control:
+    loop_var: prometheus_dir
+  tags:
+  - configs
+
+- name: Prometheus Create data dir
+  ansible.builtin.file:
+    path: "{{ prometheus_data_dir }}"
+    state: directory
+    # Prometheus runs as a user 'nobody' (uid=65534 gid=65534) in the container
+    owner: '65534'
+    group: '65534'
+    mode: '0755'
+  when: prometheus_create_data_dir
+
+- name: Prometheus main config file
+  ansible.builtin.template:
+    src: prometheus.yml.j2
+    dest: "{{ prometheus_config_dir }}/prometheus.yml"
+    force: true
+    # Prometheus in the container runs as a user 'nobody' (uid=65534 gid=65534) in the container
+    owner: '65534'
+    group: '65534'
+    mode: '0640'
+  notify:
+  - Prometheus config reload
+  tags:
+  - configs
+
+- name: Prometheus rule configs
+  ansible.builtin.template:
+    src: rules/rules.yml.j2
+    dest: "{{ prometheus_config_dir }}/rules/rules.yml"
+    force: true
+    # Prometheus in the container runs as a user 'nobody' (uid=65534 gid=65534) in the container
+    owner: '65534'
+    group: '65534'
+    mode: '0640'
+  notify:
+  - Prometheus config reload
+  tags:
+  - configs
+
+- name: Prometheus validate configs
+  ansible.builtin.command: "/usr/bin/docker run --rm --entrypoint promtool -v {{ prometheus_config_dir }}/prometheus.yml:/tmp/prometheus.yml {{ prometheus_image }}:{{ prometheus_version }} check config /tmp/prometheus.yml"
+  changed_when: False
+  tags:
+  - configs
+
+- name: Prometheus Run container
+  community.docker.docker_container:
+    name: "{{ prometheus_container_name }}"
+    hostname: "{{ prometheus_container_name }}"
+    image: "{{ prometheus_image }}:{{ prometheus_version }}"
+    container_default_behavior: compatibility
+    command:
+    - "--config.file={{ prometheus_container_config_dir }}/prometheus.yml"
+    - --web.enable-lifecycle
+    - --web.console.libraries=/usr/share/prometheus/console_libraries
+    - --web.console.templates=/usr/share/prometheus/consoles
+    - --storage.tsdb.path=/prometheus/data
+    - "--storage.tsdb.retention.time={{ prometheus_retention_time }}"
+    - --storage.tsdb.allow-overlapping-blocks  # [EXPERIMENTAL]
+    - --query.timeout=1m
+    command_handling: correct
+    env: "{{ prometheus_env }}"
+    state: started
+    networks:
+    - name: "{{ docker_network_name }}"
+    ports:
+    - "9090:9090"
+    restart: "{{ prometheus_container_restart }}"
+    recreate: "{{ prometheus_container_recreate }}"
+    restart_policy: unless-stopped
+    log_driver: journald
+    log_options:
+      tag: "{{ '{{' }}.Name{{ '}}' }}"
+    volumes:
+    - "{{ prometheus_config_dir }}:{{ prometheus_container_config_dir }}:ro"
+    - "{{ prometheus_data_dir }}:/prometheus:rw"

@@ -1,0 +1,36 @@
+#jinja2: lstrip_blocks: True
+{{ ansible_managed | comment }}
+
+groups:
+- name: common
+  rules:
+  # Alert for any instance that is unreachable for >3 minutes.
+  - alert: InstanceDown
+    expr: up == 0
+    for: 3m
+    labels:
+      severity: critical
+      telegram: true
+    annotations:
+      summary: "Instance {{ '{{' }} $labels.instance {{ '}}' }} DOWN"
+      description: "{{ '{{' }} $labels.instance {{ '}}' }} of job {{ '{{' }} $labels.job {{ '}}' }} has been down for more than 3 minutes."
+- name: servers
+  rules:
+  - alert: DiskUsageHIGH
+    expr: (1- node_filesystem_avail_bytes{job=~".*-node-exporter", fstype=~"btrfs|ext4|jffs2|vfat|xfs"} / node_filesystem_size_bytes{job=~".*-node-exporter", fstype=~"btrfs|ext4|jffs2|vfat|xfs"} * on(instance) group_left(nodename) node_uname_info{job=~".*-node-exporter"}) *100 > 90
+    for: 10m
+    labels:
+      severity: critical
+      telegram: true
+    annotations:
+      summary: "Disk usage high on {{ '{{' }} $labels.nodename {{ '}}' }}"
+      description: "More than 90% of disk space is consumed on {{ '{{' }} $labels.mountpoint {{ '}}' }} at {{ '{{' }} $labels.nodename {{ '}}' }}"
+  - alert: MDRaidFailed
+    expr: node_md_disks{state="failed"} > 0
+    for: 5m
+    labels:
+      severity: critical
+      telegram: true
+    annotations:
+      summary: "Failed disks in {{ '{{' }} $labels.device {{ '}}' }} on {{ '{{' }} $labels.instance {{ '}}' }}"
+      description: "RAID device {{ '{{' }} $labels.device {{ '}}' }} on {{ '{{' }} $labels.instance {{ '}}' }} has failed disks"

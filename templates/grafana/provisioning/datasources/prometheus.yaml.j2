@@ -1,0 +1,12 @@
+#jinja2: lstrip_blocks: True
+{{ ansible_managed | comment }}
+
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    # Access mode - proxy (server in the UI) or direct (browser in the UI).
+    access: proxy
+    httpMethod: POST
+    url: "http://{{ prometheus_container_name }}:9090"
